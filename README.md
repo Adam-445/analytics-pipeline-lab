@@ -12,12 +12,15 @@ graph LR
 ```
 
 ## Tech Stack
-| Component       | Purpose                          |
-|-----------------|----------------------------------|
-| Apache Flink    | Stream processing engine         |
-| PyFlink         | Python API for Flink             |
-| Kafka           | Distributed event streaming      |
-| Docker Compose  | Container orchestration          |
+| Component       | Phase | Purpose                          |
+|-----------------|-------|----------------------------------|
+| Apache Flink    | 2-3   | Stateful stream processing       |
+| Redis           | 3     | Low-latency metrics storage      |
+| FastAPI         | 1,3   | Ingestion & insights API         |
+| Kafka           | 1-3   | Distributed event bus            |
+| Docker Compose  | All   | Environment orchestration        |
+
+---
 
 ## Phase 1: Event Ingestion with Kafka
 
@@ -31,7 +34,8 @@ graph LR
 - Kafka consumer logs events
 - Docker Compose for Kafka & Zookeeper setup
 
-<details> <summary style="font-size: 1.2em; font-weight: bold; cursor: pointer;">Setup Instructions</summary>
+<details>
+<summary><strong>Setup Instructions</strong></summary>
 
 ```bash
 # Start core services
@@ -69,7 +73,8 @@ graph LR
 - Results printed to stdout (can be redirected to sinks in future)
 - Kafka topic is created automatically if it doesn’t exist
 
-<details> <summary style="font-size: 1.2em; font-weight: bold; cursor: pointer;">Setup Instructions</summary>
+<details>
+<summary><strong>Setup Instructions</strong></summary>
 
 ```bash
 docker-compose up --build
@@ -87,5 +92,74 @@ This:
 Use `producer.py` (or the FastAPI tracker from Phase 1) to send test events.
 </details>
 
-## Next: Phase 3
-- I'm going to be using Redis to store aggregated results for low-latency queries
+## Phase 3: Real-Time Cache with Redis
+
+```mermaid
+graph LR
+  B[Kafka] --> C[Flink]
+  C[Flink] -->|Windowed Metrics| R[Redis]
+  R --> F[FastAPI]
+  F --> W[(Web Client)]
+```
+
+- Kafka receives incoming event streams.
+- PyFlink consumes and processes these streams, applying sliding window aggregation.
+- Aggregated metrics are stored in Redis sorted sets.
+- A FastAPI service exposes these metrics via a `/metrics` HTTP endpoint.
+
+<details> 
+<summary><strong>Setup Instructions</strong></summary>
+
+```bash
+# Copy environment template
+cp .env.example .env
+
+# Start all services
+docker-compose up -d --build
+
+# Generate test data
+docker-compose exec flink_service python src/jobs/producers/metric_producer.py
+```
+
+**Access Services**:
+- FastAPI Docs: http://localhost:8000/docs
+- Flink Dashboard: http://localhost:8081
+- Redis CLI: `docker exec -it phase3-redis-1 redis-cli -a redispass`
+
+**Sample Query**:
+```bash
+curl "http://localhost:8000/metrics/metrics?event_type=click&window_size=30s"
+```
+</details>
+<details>
+<summary><strong>API Endpoints</strong></summary>
+
+### Get Metrics
+```http
+GET /metrics?event_type={type}&window_size={size}&limit={n}
+```
+
+**Response**:
+```json
+{
+  "event_type": "click",
+  "window_size": "30s",
+  "entries": [
+    {
+      "window_start": 1719392400000,
+      "count": 142,
+      "total_value": 8563.21,
+      "unique_users": 23
+    }
+  ]
+}
+```
+</details>
+
+
+---
+
+## Future Roadmap
+| Phase | Focus Area          | Key Features                            |
+|-------|---------------------|-----------------------------------------|
+| 4     | Batch Storage       | PostgreSQL or ClickHouse integration    |
