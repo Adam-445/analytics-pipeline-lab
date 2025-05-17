@@ -1,0 +1,5 @@
+apache-flink==2.0.0
+confluent-kafka
+redis
+pydantic
+pydantic-settings

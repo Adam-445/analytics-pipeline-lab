@@ -5,10 +5,6 @@ from datetime import datetime
 
 from confluent_kafka import Producer
 
-EVENT_TYPES = ["page_view", "click", "login", "logout", "purchase"]
-PAGES = ["/home", "/products", "/cart", "/checkout"]
-USER_IDS = [f"user_{i}" for i in range(1, 11)]
-
 config = {
     "bootstrap.servers": "localhost:9092",
     "acks": "all",

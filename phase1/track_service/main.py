@@ -1,6 +1,6 @@
 from fastapi import FastAPI
-from Projects.phase1.track_service.schemas import AppEvent
-from Projects.phase1.track_service.producer import produce_event
+from phase1.track_service.schemas import AppEvent
+from phase1.track_service.producer import produce_event
 
 app = FastAPI()
 
