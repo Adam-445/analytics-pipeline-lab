@@ -1,0 +1,4 @@
+psycopg==3.2.9
+redis==6.1.0
+sqlalchemy==2.0.41
+pydantic-settings==2.9.1
