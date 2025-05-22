@@ -9,6 +9,7 @@ graph LR
   B --> C[Flink Processor]
   C --> D[Redis State Store]
   D --> E[API Dashboard]
+  D --> F[PostgreSQL]
 ```
 
 ## Tech Stack
@@ -156,10 +157,73 @@ GET /metrics?event_type={type}&window_size={size}&limit={n}
 ```
 </details>
 
+## Phase 4: Long-Term Storage with PostgreSQL
 
----
+```mermaid
+graph LR
+  R[Redis] --> S[Sync Service]
+  S --> P[PostgreSQL]
+  P --> F[FastAPI History Endpoint]
+```
 
-## Future Roadmap
-| Phase | Focus Area          | Key Features                            |
-|-------|---------------------|-----------------------------------------|
-| 4     | Batch Storage       | PostgreSQL or ClickHouse integration    |
+- **PostgreSQL** for persistent metric storage
+- **Sync Service** that periodically:
+  - Reads aggregated metrics from Redis
+  - Writes to PostgreSQL
+  - Cleans processed metrics from Redis
+- **New FastAPI Endpoints**:
+  - `/metrics/realtime` - Current window from Redis
+  - `/metrics/history` - Historical data from PostgreSQL
+
+<details>
+<summary><strong>Setup Instructions</strong></summary>
+
+```bash
+# Copy environment template
+cp .env.example .env
+
+# Start all services
+docker-compose up -d --build
+
+# Generate test data (in Flink service)
+docker-compose exec flink_service python src/jobs/producers/metric_producer.py
+
+# Verify PostgreSQL data
+docker-compose exec postgres psql -U admin -d analytics -c "SELECT * FROM metrics LIMIT 5;"
+```
+
+**Access Services**:
+- FastAPI Docs: http://localhost:8000/docs
+- PostgreSQL: `docker-compose exec postgres psql -U admin analytics`
+- Sync Service Logs: `docker-compose logs -f sync_service`
+</details>
+
+<details>
+<summary><strong>API Endpoints</strong></summary>
+
+### Get Real-Time Metrics
+```http
+GET /metrics/realtime?event_type={type}&window_size={size}&limit={n}
+```
+
+### Get Historical Metrics
+```http
+GET /metrics/history?event_type={type}&window_size={size}&start_time={iso}&end_time={iso}&limit={n}
+```
+
+**Response**:
+```json
+{
+  "event_type": "click",
+  "window_size": "30s",
+  "entries": [
+    {
+      "window_start": 1719392400000,
+      "count": 142,
+      "total_value": 8563.21,
+      "unique_users": 23
+    }
+  ]
+}
+```
+</details>
