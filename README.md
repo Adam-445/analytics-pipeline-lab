@@ -15,10 +15,11 @@ graph LR
 ## Tech Stack
 | Component       | Phase | Purpose                          |
 |-----------------|-------|----------------------------------|
-| Apache Flink    | 2-3   | Stateful stream processing       |
-| Redis           | 3     | Low-latency metrics storage      |
-| FastAPI         | 1,3   | Ingestion & insights API         |
-| Kafka           | 1-3   | Distributed event bus            |
+| Apache Flink    | 2-4   | Stateful stream processing       |
+| Redis           | 3-4   | Low-latency metrics storage      |
+| FastAPI         | 1,3-4 | Ingestion & insights API         |
+| Kafka           | 1-4   | Distributed event bus            |
+| PostgreSQL      | 4     | Long-term metrics storage        |
 | Docker Compose  | All   | Environment orchestration        |
 
 ---
