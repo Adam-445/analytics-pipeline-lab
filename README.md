@@ -10,17 +10,19 @@ graph LR
   C --> D[Redis State Store]
   D --> E[API Dashboard]
   D --> F[PostgreSQL]
+  E --> G[WebSocket Client]
 ```
 
 ## Tech Stack
 | Component       | Phase | Purpose                          |
 |-----------------|-------|----------------------------------|
-| Apache Flink    | 2-4   | Stateful stream processing       |
-| Redis           | 3-4   | Low-latency metrics storage      |
-| FastAPI         | 1,3-4 | Ingestion & insights API         |
-| Kafka           | 1-4   | Distributed event bus            |
-| PostgreSQL      | 4     | Long-term metrics storage        |
+| Apache Flink    | 2-5   | Stateful stream processing       |
+| Redis           | 3-5   | Low-latency metrics storage      |
+| FastAPI         | 1,3-5 | Ingestion & insights API         |
+| Kafka           | 1-5   | Distributed event bus            |
+| PostgreSQL      | 4-5   | Long-term metrics storage        |
 | Docker Compose  | All   | Environment orchestration        |
+| WebSockets      | 5     | Real-time dashboard updates      |
 
 ---
 
@@ -228,3 +230,110 @@ GET /metrics/history?event_type={type}&window_size={size}&start_time={iso}&end_t
 }
 ```
 </details>
+
+## Phase 5: Real-Time Dashboard with WebSockets
+
+```mermaid
+graph LR
+  F[FastAPI] -->|WebSocket| W[Web Client]
+  R[Redis Pub/Sub] --> F
+  C[Flink] -->|Publish| R
+```
+
+- Added WebSocket endpoint at `/live-metrics`
+- Flink publishes metric updates to Redis Pub/Sub channel
+- FastAPI forwards updates to connected WebSocket clients
+- Enables live dashboard updates without polling
+
+<details>
+<summary><strong>Dashboard Preview</strong></summary>
+
+The dashboard provides real-time visualization of key metrics:
+
+- Live Activity Feed: Shows events as they're processed
+
+- Metric Cards: Display current counts, and unique users
+
+- Time-Series Charts: Visualize trends over 30-second windows
+
+- Event Type Filter: Focus on specific event categories
+</details>
+
+
+<details>
+<summary><strong>Setup Instructions</strong></summary>
+
+```bash
+# Start all services
+docker-compose up -d --build
+
+# Generate test data
+docker-compose exec flink_service python src/jobs/producers/metric_producer.py
+
+# Connect to WebSocket (use client like wscat):
+wscat -c ws://localhost:8000/live-metrics
+```
+
+**Access Services**:
+- WebSocket endpoint: `ws://localhost:8000/live-metrics`
+- Real-time updates visible in WebSocket client
+- Static dashboard files: http://localhost:8000/static/index.html
+
+**Sample Message**:
+```json
+{
+  "window_start": 1719392400000,
+  "window_end": 1719392430000,
+  "count": 142,
+  "total_value": 8563.21,
+  "unique_users": 23,
+  "event_type": "click",
+  "window_size": "30s"
+}
+```
+</details>
+
+<details>
+<summary><strong>API Endpoints</strong></summary>
+
+### Get Real-Time Metrics (HTTP)
+```http
+GET /metrics/realtime?event_type={type}&window_size={size}&limit={n}
+```
+
+### Get Historical Metrics
+```http
+GET /metrics/history?event_type={type}&window_size={size}&start_time={iso}&end_time={iso}&limit={n}
+```
+
+### Real-Time Stream (WebSocket)
+```http
+GET /live-metrics
+```
+
+**WebSocket Message Format**:
+```json
+{
+  "window_start": 1719392400000,
+  "window_end": 1719392430000,
+  "count": 142,
+  "total_value": 8563.21,
+  "unique_users": 23,
+  "event_type": "click",
+  "window_size": "30s"
+}
+```
+</details>
+
+---
+
+## Complete System Architecture
+
+The final system demonstrates an event processing pipeline:
+
+1. **Event Ingestion**: FastAPI receives events and pushes to Kafka
+2. **Stream Processing**: Flink processes events with sliding window aggregation
+3. **Real-Time Storage**: Redis stores current metrics with TTL
+4. **Live Streaming**: WebSocket clients receive instant updates via Redis pub/sub
+5. **Historical Storage**: PostgreSQL persists metrics for long-term analysis
+6. **Data Synchronization**: Sync service moves data from Redis to PostgreSQL
