@@ -1,7 +1,10 @@
-# Real-Time Analytics Pipeline with Kafka & Flink ![pipeline-badge](https://img.shields.io/badge/status-active-success.svg)
+# Real-Time Analytics Pipeline with Kafka & Flink ![Project Status](https://img.shields.io/badge/status-archived-lightgrey)
 
 
 This project is part of a multi-phase journey to build a scalable event processing system demonstrating real-time aggregations using modern streaming technologies.
+> **Note**: This lab is now **archived** and will no longer receive updates.  
+> The work in this repository has been carried forward into the [Final Project Repository](https://github.com/Adam-445/realtime-analytics-pipeline), which builds on this work as a complete, end-to-end solution.
+
 
 ```mermaid
 graph LR
@@ -247,6 +250,8 @@ graph LR
 
 <details>
 <summary><strong>Dashboard Preview</strong></summary>
+  
+![Dashboard Screenshot](images/dashboard-screenshot.png)
 
 The dashboard provides real-time visualization of key metrics:
 
