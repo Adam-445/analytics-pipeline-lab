@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Real-Time Analytics Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3.3.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background: #fafafa; }
+    h1 { margin-bottom: 10px; }
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      padding: 20px;
+      margin-bottom: 30px;
+      background: white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .chart-container { height: 400px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { padding: 8px 12px; border-bottom: 1px solid #eee; }
+    th { background: #f5f5f5; text-align: left; }
+  </style>
+</head>
+<body>
+
+  <h1>Real-Time Metrics Dashboard</h1>
+
+  <div class="card">
+    <h2>Event Count (per Event Type)</h2>
+    <div class="chart-container">
+      <canvas id="countChart"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Unique Users (per Event Type)</h2>
+    <div class="chart-container">
+      <canvas id="usersChart"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Latest Incoming Metrics</h2>
+    <div id="metricsTable"></div>
+  </div>
+
+  <script>
+    // Color management: assign each event type its own color
+    const palette = ['#e6194b','#3cb44b','#ffe119','#4363d8','#f58231','#911eb4','#46f0f0'];
+    const colorMap = {};
+    function getColor(label) {
+      if (!colorMap[label]) {
+        const i = Object.keys(colorMap).length % palette.length;
+        colorMap[label] = palette[i];
+      }
+      return colorMap[label];
+    }
+
+    // Chart factory to avoid duplication
+    function makeTimeChart(ctx, yLabel) {
+      return new Chart(ctx, {
+        type: 'line',
+        data: { datasets: [] },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              type: 'time',
+              time: { unit: 'second', tooltipFormat: 'HH:mm:ss' },
+              title: { display: true, text: 'Time' }
+            },
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: yLabel }
+            }
+          }
+        }
+      });
+    }
+
+    const countChart = makeTimeChart(
+      document.getElementById('countChart').getContext('2d'),
+      'Count'
+    );
+    const usersChart = makeTimeChart(
+      document.getElementById('usersChart').getContext('2d'),
+      'Unique Users'
+    );
+
+    // Dataset creation / update
+    function addPoint(chart, label, x, y) {
+      let ds = chart.data.datasets.find(d => d.label === label);
+      if (!ds) {
+        const c = getColor(label);
+        ds = {
+          label: label,
+          data: [],
+          borderColor: c,
+          backgroundColor: c,
+          pointBorderColor: c,
+          pointBackgroundColor: c,
+          fill: false,
+          tension: 0.1,
+          pointRadius: 4
+        };
+        chart.data.datasets.push(ds);
+      }
+      ds.data.push({ x, y });
+      if (ds.data.length > 30) ds.data.shift();
+    }
+
+    // Table management
+    const latestMetrics = [];
+    function updateTable(metric) {
+      latestMetrics.unshift(metric);
+      if (latestMetrics.length > 5) latestMetrics.pop();
+
+      let html = `<table>
+        <tr><th>Time</th><th>Event</th><th>Count</th><th>Users</th></tr>`;
+      for (const m of latestMetrics) {
+        html += `<tr>
+          <td>${new Date(m.window_start).toLocaleTimeString()}</td>
+          <td>${m.event_type}</td>
+          <td>${m.count}</td>
+          <td>${m.unique_users}</td>
+        </tr>`;
+      }
+      html += `</table>`;
+      document.getElementById('metricsTable').innerHTML = html;
+    }
+
+    // WebSocket + batched chart updates
+    const socket = new WebSocket(`ws://${window.location.host}/live-metrics`);
+    let dirty = false;
+
+    socket.onmessage = e => {
+      const m = JSON.parse(e.data);
+      const ts = new Date(m.window_start);
+      addPoint(countChart, m.event_type, ts, m.count);
+      addPoint(usersChart, m.event_type, ts, m.unique_users);
+      updateTable(m);
+      dirty = true;
+    };
+
+    // Redraw charts up to 5×/sec
+    setInterval(() => {
+      if (dirty) {
+        countChart.update();
+        usersChart.update();
+        dirty = false;
+      }
+    }, 200);
+
+  </script>
+</body>
+</html>
